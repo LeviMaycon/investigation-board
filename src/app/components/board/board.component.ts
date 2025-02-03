@@ -1,4 +1,4 @@
-import { Component, OnInit, AfterViewInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, AfterViewInit } from '@angular/core';
 import * as d3 from 'd3';
 
 @Component({
@@ -7,86 +7,111 @@ import * as d3 from 'd3';
   styleUrls: ['./board.component.scss']
 })
 export class BoardComponent implements OnInit, AfterViewInit {
-  @ViewChild('chart') chartContainer!: ElementRef;
-
-  data = [
-    { name: 'Case 1', value: 100 },
-    { name: 'Case 2', value: 200 },
-    { name: 'Case 3', value: 150 },
-    { name: 'Case 4', value: 300 },
-    { name: 'Case 5', value: 250 }
+  cards = [
+    { id: '1', title: 'Daniel', position: { x: 150, y: 150 }, connections: ['2', '3'] },
+    { id: '2', title: 'Levi', position: { x: 400, y: 400 }, connections: ['1'] },
+    { id: '3', title: 'Rossado', position: { x: 650, y: 150 }, connections: ['1'] },
+    { id: '4', title: 'Drew', position: { x: 900, y: 340 }, connections: ['1'] },
   ];
+
+  private dragData: { card: any, offsetX: number, offsetY: number } | null = null;
 
   constructor() { }
 
   ngOnInit(): void {
-    // Dados podem ser carregados ou manipulados aqui.
+    console.log('BoardComponent ngOnInit');
   }
 
   ngAfterViewInit(): void {
-    this.createBarChart();
+    setTimeout(() => {
+      this.drawConnections();
+    });
   }
 
-  createBarChart(): void {
-    const svg = d3.select(this.chartContainer.nativeElement)
-      .append('svg')
-      .attr('width', 600)
-      .attr('height', 400);
+  drawConnections() {
+    const svg = d3.select('#boardSvg');
 
-    // Definir margens e dimensões
-    const margin = { top: 20, right: 30, bottom: 40, left: 40 };
-    const width = +svg.attr('width') - margin.left - margin.right;
-    const height = +svg.attr('height') - margin.top - margin.bottom;
+    if (svg.empty()) {
+      console.error('SVG element not found!');
+      return;
+    }
 
-    // Definir a escala para o eixo X
-    const x = d3.scaleBand()
-      .domain(this.data.map(d => d.name))
-      .range([0, width])
-      .padding(0.1);
+    svg.selectAll('line').remove();
 
-    // Definir a escala para o eixo Y
-    const y = d3.scaleLinear()
-      .domain([0, d3.max(this.data, d => d.value)!])
-      .nice()
-      .range([height, 0]);
+    const cardWidth = 100;
+    const cardHeight = 100;
 
-    // Adicionar grupo para o gráfico
-    const g = svg.append('g')
-      .attr('transform', `translate(${margin.left},${margin.top})`);
+    this.cards.forEach(card => {
+      card.connections.forEach(connectionId => {
+        const targetCard = this.cards.find(c => c.id === connectionId);
 
-    // Adicionar barras ao gráfico
-    g.selectAll('.bar')
-      .data(this.data)
-      .enter().append('rect')
-      .attr('class', 'bar')
-      .attr('x', d => x(d.name)!)
-      .attr('y', d => y(d.value))
-      .attr('width', x.bandwidth())
-      .attr('height', d => height - y(d.value))
-      .attr('fill', '#2F4F4F');
+        if (targetCard) {
+          console.log(`Drawing line from ${card.id} to ${targetCard.id}`);
 
-    // Adicionar eixo X
-    g.append('g')
-      .selectAll('.x-axis')
-      .data(this.data)
-      .enter().append('text')
-      .attr('class', 'x-axis')
-      .attr('x', (d, i) => x(d.name)! + x.bandwidth() / 2)
-      .attr('y', height + 30)
-      .attr('text-anchor', 'middle')
-      .attr('fill', '#000')
-      .text(d => d.name);
+          const x1 = card.position.x + cardWidth / 2  / cardHeight;
+          const y1 = card.position.y + cardHeight / 2 / cardHeight;
+          const x2 = targetCard.position.x + cardWidth / 2 / cardHeight;
+          const y2 = targetCard.position.y + cardHeight / 2 / cardHeight;
 
-    // Adicionar eixo Y
-    g.append('g')
-      .selectAll('.y-axis')
-      .data(this.data)
-      .enter().append('text')
-      .attr('class', 'y-axis')
-      .attr('x', -10)
-      .attr('y', (d, i) => y(d.value)!)
-      .attr('text-anchor', 'middle')
-      .attr('fill', '#000')
-      .text(d => d.value);
+          const distance = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+
+          console.log(`Distance from ${card.id} to ${targetCard.id}: ${distance}`);
+
+          svg.append('line')
+            .attr('x1', x1)
+            .attr('y1', y1)
+            .attr('x2', x2)
+            .attr('y2', y2)
+            .attr('stroke', 'black')
+            .attr('stroke-width', 2)
+            .attr('stroke-width', `${distance / 10} ${distance / 5}`);
+        }
+      });
+    });
   }
+
+  trackByCardId(index: number, card: any): string {
+    return card.id;
+  }
+
+  startDrag(event: MouseEvent | TouchEvent, card: any) {
+    if (event instanceof MouseEvent) {
+      event.preventDefault();
+    }
+
+    const offsetX = event instanceof MouseEvent ? event.clientX - card.position.x : 0;
+    const offsetY = event instanceof MouseEvent ? event.clientY - card.position.y : 0;
+
+    this.dragData = { card, offsetX, offsetY };
+
+    document.addEventListener('mousemove', this.onDragMove);
+    document.addEventListener('mouseup', this.endDrag);
+    document.addEventListener('touchmove', this.onDragMove);
+    document.addEventListener('touchend', this.endDrag);
+  }
+
+  onDragMove = (event: MouseEvent | TouchEvent) => {
+    if (!this.dragData) return;
+
+    const card = this.dragData.card;
+    const offsetX = this.dragData.offsetX;
+    const offsetY = this.dragData.offsetY;
+
+    const clientX = event instanceof MouseEvent ? event.clientX : event.touches[0].clientX;
+    const clientY = event instanceof MouseEvent ? event.clientY : event.touches[0].clientY;
+
+    card.position.x = clientX - offsetX;
+    card.position.y = clientY - offsetY;
+
+    this.drawConnections();
+  };
+  endDrag = () => {
+    if (this.dragData) {
+      document.removeEventListener('mousemove', this.onDragMove);
+      document.removeEventListener('mouseup', this.endDrag);
+      document.removeEventListener('touchmove', this.onDragMove);
+      document.removeEventListener('touchend', this.endDrag);
+      this.dragData = null;
+    }
+  };
 }

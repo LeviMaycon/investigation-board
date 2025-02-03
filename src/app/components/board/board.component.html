@@ -1,6 +1,13 @@
-<div class="board-container">
-  <h1 class="text-3xl font-bold mb-4">Investigative Board</h1>
-  <div class="chart-container">
-    <div #chart class="chart"></div>
-  </div>
+<div id="board" class="w-full bg-white h-full flex flex-col items-center justify-start p-4 relative">
+  <h1 class="text-3xl font-bold mb-6 text-center">Investigative Board</h1>
+  <svg id="boardSvg" class="w-full h-screen bg-white  mx-auto"></svg>
+  @for(card of cards; track trackByCardId){
+    <div class="card absolute w-[100px] h-[100px] bg-slate-800 p-4 rounded-md shadow-md cursor-pointer  hover:scale-105"
+         [style.top.px]="card.position.y"
+         [style.left.px]="card.position.x"
+         (mousedown)="startDrag($event, card)"
+         (touchstart)="startDrag($event, card)">
+      <div class="card-title text-center pt-6 font-semibold text-sm text-white">{{ card.title }}</div>
+    </div>
+  }
 </div>
